@@ -44,7 +44,7 @@ class ReportForm(StatesGroup):
     date = State()
     kids = State()
     teacher = State()
-    lesson = State()   # ← нове поле
+    lesson = State()
     media = State()
     confirm = State()
 
@@ -100,9 +100,15 @@ async def report_start(message: types.Message, state: FSMContext):
     )
 
 
-@dp.message(ReportForm.oc, F.text.in_(["Ромни", "Одеса"]))
+@dp.message(ReportForm.oc)
 async def report_oc(message: types.Message, state: FSMContext):
-    await state.update_data(oc=message.text.strip())
+    text = message.text.strip()
+
+    if text not in ["Ромни", "Одеса"]:
+        await message.answer("Будь ласка, оберіть один із варіантів: Ромни або Одеса.")
+        return
+
+    await state.update_data(oc=text)
 
     await message.answer(
         "Введіть дату проведення (наприклад 31.08.2026):",
@@ -110,11 +116,6 @@ async def report_oc(message: types.Message, state: FSMContext):
     )
 
     await state.set_state(ReportForm.date)
-
-
-@dp.message(ReportForm.oc)
-async def report_oc_invalid(message: types.Message):
-    await message.answer("Будь ласка, оберіть один із варіантів: Ромни або Одеса.")
 
 
 # ---------------- STEP 2: ДАТА ----------------
