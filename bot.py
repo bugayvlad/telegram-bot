@@ -11,6 +11,33 @@ API_TOKEN = os.getenv("API_TOKEN")
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
+# ---------------- HELPERS ----------------
+
+SPACES_FILE = "spaces.txt"
+
+def load_spaces():
+    mapping = {}
+    if os.path.exists(SPACES_FILE):
+        with open(SPACES_FILE, "r") as f:
+            for line in f:
+                chat_id, space = line.strip().split(":")
+                mapping[space] = int(chat_id)
+    return mapping
+
+def save_space(chat_id: int, space: str):
+    # Remove old entries for this space
+    lines = []
+    if os.path.exists(SPACES_FILE):
+        with open(SPACES_FILE, "r") as f:
+            lines = f.readlines()
+
+    with open(SPACES_FILE, "w") as f:
+        for line in lines:
+            if not line.strip().endswith(f":{space}"):
+                f.write(line)
+        f.write(f"{chat_id}:{space}\n")
+
+
 # ---------------- FSM ----------------
 
 class ReportForm(StatesGroup):
@@ -20,6 +47,29 @@ class ReportForm(StatesGroup):
     teacher = State()
     media = State()
     confirm = State()
+
+
+# ---------------- SETSPACE ----------------
+
+@dp.message(F.text.startswith("/setspace"))
+async def set_space(message: types.Message):
+    parts = message.text.split(maxsplit=1)
+
+    if len(parts) < 2:
+        await message.answer("Вкажіть простір: /setspace Ромни або /setspace Одеса")
+        return
+
+    space = parts[1].strip()
+
+    if space not in ["Ромни", "Одеса"]:
+        await message.answer("Простір має бути: Ромни або Одеса")
+        return
+
+    save_space(message.chat.id, space)
+
+    await message.answer(f"✔ Простір '{space}' прив’язано до цього чату.\n"
+                         f"Тепер звіти для '{space}' будуть надсилатися саме сюди.")
+
 
 # ---------------- START ----------------
 
@@ -33,6 +83,7 @@ async def start(message: types.Message):
         "Вітаю! Натисніть кнопку нижче:",
         reply_markup=kb.as_markup(resize_keyboard=True)
     )
+
 
 # ---------------- STEP 1: ПРОСТІР ----------------
 
@@ -49,6 +100,7 @@ async def report_start(message: types.Message, state: FSMContext):
         reply_markup=kb.as_markup(resize_keyboard=True)
     )
 
+
 @dp.message(ReportForm.oc, F.text.in_(["Ромни", "Одеса"]))
 async def report_oc(message: types.Message, state: FSMContext):
     await state.update_data(oc=message.text.strip())
@@ -60,9 +112,11 @@ async def report_oc(message: types.Message, state: FSMContext):
 
     await state.set_state(ReportForm.date)
 
+
 @dp.message(ReportForm.oc)
 async def report_oc_invalid(message: types.Message):
     await message.answer("Будь ласка, оберіть один із варіантів: Ромни або Одеса.")
+
 
 # ---------------- STEP 2: ДАТА ----------------
 
@@ -73,9 +127,11 @@ async def report_date(message: types.Message, state: FSMContext):
     await state.set_state(ReportForm.kids)
     await message.answer("Введіть кількість дітей:")
 
+
 @dp.message(ReportForm.date)
 async def report_date_invalid(message: types.Message):
     await message.answer("Будь ласка, введіть дату у форматі 31.08.2026")
+
 
 # ---------------- STEP 3: КІЛЬКІСТЬ ДІТЕЙ ----------------
 
@@ -85,6 +141,7 @@ async def report_kids(message: types.Message, state: FSMContext):
 
     await state.set_state(ReportForm.teacher)
     await message.answer("Введіть ПІП викладача (приклад: Шостак Наталія):")
+
 
 # ---------------- STEP 4: ВИКЛАДАЧ ----------------
 
@@ -103,6 +160,7 @@ async def report_teacher(message: types.Message, state: FSMContext):
         "Коли завершите — натисніть кнопку нижче.",
         reply_markup=kb.as_markup(resize_keyboard=True)
     )
+
 
 # ---------------- STEP 5: МЕДІА ----------------
 
@@ -129,6 +187,7 @@ async def report_media_done(message: types.Message, state: FSMContext):
 
     await message.answer(text, reply_markup=kb.as_markup())
 
+
 @dp.message(ReportForm.media)
 async def report_media_collect(message: types.Message, state: FSMContext):
     data = await state.get_data()
@@ -141,19 +200,25 @@ async def report_media_collect(message: types.Message, state: FSMContext):
 
     await state.update_data(media=media_list)
 
-# ---------------- STEP 6: CALLBACK FIXED ----------------
+
+# ---------------- STEP 6: CALLBACK ----------------
 
 @dp.callback_query(F.data == "confirm_yes")
 async def report_confirm(call: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
-    oc_chat_map = {
-        "Ромни": -1001760038328,
-        "Одеса": -1002100782948
-    }
+    spaces = load_spaces()
+    chat_id = spaces.get(data["oc"])
 
-    chat_id = oc_chat_map.get(data["oc"])
+    if not chat_id:
+        await call.message.answer(
+            "❗ Простір не прив’язано до жодного чату.\n"
+            "Зайдіть у потрібний чат і виконайте:\n"
+            "/setspace Ромни або /setspace Одеса"
+        )
+        return
 
+    # Надсилання тексту
     await bot.send_message(
         chat_id,
         f"Звіт:\n\n"
@@ -163,6 +228,7 @@ async def report_confirm(call: types.CallbackQuery, state: FSMContext):
         f"Викладач: {data['teacher']}"
     )
 
+    # Надсилання медіа
     for mtype, file_id in data.get("media", []):
         if mtype == "photo":
             await bot.send_photo(chat_id, file_id)
@@ -181,6 +247,7 @@ async def report_confirm(call: types.CallbackQuery, state: FSMContext):
         reply_markup=kb.as_markup(resize_keyboard=True)
     )
 
+
 @dp.callback_query(F.data == "confirm_no")
 async def report_cancel(call: types.CallbackQuery, state: FSMContext):
     await call.message.answer("❌ Відправку скасовано.")
@@ -194,6 +261,7 @@ async def report_cancel(call: types.CallbackQuery, state: FSMContext):
         "Повертаємось до початку:",
         reply_markup=kb.as_markup(resize_keyboard=True)
     )
+
 
 # ---------------- RUN ----------------
 
