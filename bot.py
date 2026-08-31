@@ -30,23 +30,22 @@ async def start(message: types.Message):
     kb.adjust(1)
 
     await message.answer(
-        "Вітаю! Оберіть дію:",
+        "Вітаю! Натисніть кнопку нижче:",
         reply_markup=kb.as_markup(resize_keyboard=True)
     )
 
-# ---------------- STEP 1: ОЦ ----------------
+# ---------------- STEP 1: ПРОСТІР ----------------
 
 @dp.message(F.text == "Подати звіт")
 async def report_start(message: types.Message, state: FSMContext):
     kb = ReplyKeyboardBuilder()
-    kb.button(text="ОЦ Ромни")
-    kb.button(text="ОЦ Одеса")
-    kb.button(text="Інше")
+    kb.button(text="Ромни")
+    kb.button(text="Одеса")
     kb.adjust(1)
 
     await state.set_state(ReportForm.oc)
     await message.answer(
-        "Оберіть ОЦ:",
+        "Вітаю!\nОберіть простір:",
         reply_markup=kb.as_markup(resize_keyboard=True)
     )
 
@@ -54,10 +53,13 @@ async def report_start(message: types.Message, state: FSMContext):
 async def report_oc(message: types.Message, state: FSMContext):
     await state.update_data(oc=message.text)
 
-    await state.set_state(ReportForm.date)
-    await message.answer("Введіть дату проведення (наприклад 31.08.2026):")
+    # Прибираємо клавіатуру
+    await message.answer("Введіть дату проведення (наприклад 31.08.2026):",
+                         reply_markup=types.ReplyKeyboardRemove())
 
-# ---------------- STEP 2: Дата ----------------
+    await state.set_state(ReportForm.date)
+
+# ---------------- STEP 2: ДАТА ----------------
 
 @dp.message(ReportForm.date)
 async def report_date(message: types.Message, state: FSMContext):
@@ -66,24 +68,16 @@ async def report_date(message: types.Message, state: FSMContext):
     await state.set_state(ReportForm.kids)
     await message.answer("Введіть кількість дітей:")
 
-# ---------------- STEP 3: Кількість дітей ----------------
+# ---------------- STEP 3: КІЛЬКІСТЬ ДІТЕЙ ----------------
 
 @dp.message(ReportForm.kids)
 async def report_kids(message: types.Message, state: FSMContext):
     await state.update_data(kids=message.text)
 
-    kb = ReplyKeyboardBuilder()
-    kb.button(text="Пʼявка О.Б.")
-    kb.button(text="Інший викладач")
-    kb.adjust(1)
-
     await state.set_state(ReportForm.teacher)
-    await message.answer(
-        "Оберіть викладача:",
-        reply_markup=kb.as_markup(resize_keyboard=True)
-    )
+    await message.answer("Введіть ПІП викладача (приклад: Шостак Наталія):")
 
-# ---------------- STEP 4: Викладач ----------------
+# ---------------- STEP 4: ВИКЛАДАЧ ----------------
 
 @dp.message(ReportForm.teacher)
 async def report_teacher(message: types.Message, state: FSMContext):
@@ -91,12 +85,22 @@ async def report_teacher(message: types.Message, state: FSMContext):
 
     await state.set_state(ReportForm.media)
     await message.answer(
-        "Надішліть фото або відео (можна кілька). Коли завершите — напишіть 'Готово'."
+        "Надішліть фото або відео (до 10).\n"
+        "Коли завершите — натисніть кнопку нижче."
     )
 
-# ---------------- STEP 5: Фото / відео ----------------
+    kb = ReplyKeyboardBuilder()
+    kb.button(text="Надіслати звіт")
+    kb.adjust(1)
 
-@dp.message(ReportForm.media, F.text.lower() == "готово")
+    await message.answer(
+        "Після завантаження матеріалів натисніть:",
+        reply_markup=kb.as_markup(resize_keyboard=True)
+    )
+
+# ---------------- STEP 5: МЕДІА ----------------
+
+@dp.message(ReportForm.media, F.text == "Надіслати звіт")
 async def report_media_done(message: types.Message, state: FSMContext):
     await state.set_state(ReportForm.confirm)
 
@@ -104,7 +108,7 @@ async def report_media_done(message: types.Message, state: FSMContext):
 
     text = (
         f"Перевірте дані:\n\n"
-        f"ОЦ: {data['oc']}\n"
+        f"Простір: {data['oc']}\n"
         f"Дата: {data['date']}\n"
         f"Кількість дітей: {data['kids']}\n"
         f"Викладач: {data['teacher']}\n"
@@ -131,26 +135,25 @@ async def report_media_collect(message: types.Message, state: FSMContext):
 
     await state.update_data(media=media_list)
 
-# ---------------- STEP 6: Підтвердження ----------------
+# ---------------- STEP 6: ВІДПРАВКА ----------------
 
 @dp.callback_query(F.data == "confirm_yes")
 async def report_confirm(call: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
-    # Визначення чату за ОЦ
+    # Чати Golden Berry
     oc_chat_map = {
-        "ОЦ Ромни": -1001234567890,
-        "ОЦ Одеса": -1009876543210,
-        "Інше": -1001122334455
+        "Ромни": -1001760038328,   # твій чат Ромни
+        "Одеса": -1002100782948    # твій чат Одеса
     }
 
-    chat_id = oc_chat_map.get(data["oc"], -1001122334455)
+    chat_id = oc_chat_map.get(data["oc"])
 
     # Надсилання тексту
     await bot.send_message(
         chat_id,
         f"Звіт:\n\n"
-        f"ОЦ: {data['oc']}\n"
+        f"Простір: {data['oc']}\n"
         f"Дата: {data['date']}\n"
         f"Кількість дітей: {data['kids']}\n"
         f"Викладач: {data['teacher']}"
