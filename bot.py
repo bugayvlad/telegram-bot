@@ -143,7 +143,7 @@ async def report_media_collect(message: types.Message, state: FSMContext):
 
 # ---------------- STEP 6: CALLBACK FIXED ----------------
 
-@dp.callback_query(ReportForm.confirm, F.data == "confirm_yes")
+@dp.callback_query(F.data == "confirm_yes")
 async def report_confirm(call: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
@@ -181,7 +181,7 @@ async def report_confirm(call: types.CallbackQuery, state: FSMContext):
         reply_markup=kb.as_markup(resize_keyboard=True)
     )
 
-@dp.callback_query(ReportForm.confirm, F.data == "confirm_no")
+@dp.callback_query(F.data == "confirm_no")
 async def report_cancel(call: types.CallbackQuery, state: FSMContext):
     await call.message.answer("❌ Відправку скасовано.")
     await state.clear()
