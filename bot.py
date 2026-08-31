@@ -141,7 +141,7 @@ async def report_media_collect(message: types.Message, state: FSMContext):
 
     await state.update_data(media=media_list)
 
-# ---------------- STEP 6: ВІДПРАВКА ----------------
+# ---------------- STEP 6: CALLBACK FIXED ----------------
 
 @dp.callback_query(ReportForm.confirm, F.data == "confirm_yes")
 async def report_confirm(call: types.CallbackQuery, state: FSMContext):
