@@ -44,6 +44,7 @@ class ReportForm(StatesGroup):
     date = State()
     kids = State()
     teacher = State()
+    lesson = State()   # ← нове поле
     media = State()
     confirm = State()
 
@@ -147,6 +148,16 @@ async def report_kids(message: types.Message, state: FSMContext):
 async def report_teacher(message: types.Message, state: FSMContext):
     await state.update_data(teacher=message.text.strip())
 
+    await state.set_state(ReportForm.lesson)
+    await message.answer("Вкажіть назву заняття:")
+
+
+# ---------------- STEP 5: НАЗВА ЗАНЯТТЯ ----------------
+
+@dp.message(ReportForm.lesson, F.text)
+async def report_lesson(message: types.Message, state: FSMContext):
+    await state.update_data(lesson=message.text.strip())
+
     await state.set_state(ReportForm.media)
 
     kb = ReplyKeyboardBuilder()
@@ -160,7 +171,7 @@ async def report_teacher(message: types.Message, state: FSMContext):
     )
 
 
-# ---------------- STEP 5: МЕДІА ----------------
+# ---------------- STEP 6: МЕДІА ----------------
 
 @dp.message(ReportForm.media, F.text == "Надіслати звіт")
 async def report_media_done(message: types.Message, state: FSMContext):
@@ -169,9 +180,11 @@ async def report_media_done(message: types.Message, state: FSMContext):
     data = await state.get_data()
 
     text = (
+        f"Простір: {data['oc']}\n"
         f"Дата: {data['date']}\n"
         f"Кількість дітей: {data['kids']}\n"
-        f"Викладач: {data['teacher']}"
+        f"Викладач: {data['teacher']}\n"
+        f"Назва заняття: {data['lesson']}"
     )
 
     kb = InlineKeyboardBuilder()
@@ -195,7 +208,7 @@ async def report_media_collect(message: types.Message, state: FSMContext):
     await state.update_data(media=media_list)
 
 
-# ---------------- STEP 6: CALLBACK ----------------
+# ---------------- STEP 7: CALLBACK ----------------
 
 @dp.callback_query(F.data == "confirm_yes")
 async def report_confirm(call: types.CallbackQuery, state: FSMContext):
@@ -213,9 +226,11 @@ async def report_confirm(call: types.CallbackQuery, state: FSMContext):
         return
 
     caption = (
+        f"Простір: {data['oc']}\n"
         f"Дата: {data['date']}\n"
         f"Кількість дітей: {data['kids']}\n"
-        f"Викладач: {data['teacher']}"
+        f"Викладач: {data['teacher']}\n"
+        f"Назва заняття: {data['lesson']}"
     )
 
     media_group = []
