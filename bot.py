@@ -51,11 +51,13 @@ async def report_start(message: types.Message, state: FSMContext):
 
 @dp.message(ReportForm.oc)
 async def report_oc(message: types.Message, state: FSMContext):
-    await state.update_data(oc=message.text)
+    oc_clean = message.text.strip()
+    await state.update_data(oc=oc_clean)
 
-    # Прибираємо клавіатуру
-    await message.answer("Введіть дату проведення (наприклад 31.08.2026):",
-                         reply_markup=types.ReplyKeyboardRemove())
+    await message.answer(
+        "Введіть дату проведення (наприклад 31.08.2026):",
+        reply_markup=types.ReplyKeyboardRemove()
+    )
 
     await state.set_state(ReportForm.date)
 
@@ -84,17 +86,14 @@ async def report_teacher(message: types.Message, state: FSMContext):
     await state.update_data(teacher=message.text)
 
     await state.set_state(ReportForm.media)
-    await message.answer(
-        "Надішліть фото або відео (до 10).\n"
-        "Коли завершите — натисніть кнопку нижче."
-    )
 
     kb = ReplyKeyboardBuilder()
     kb.button(text="Надіслати звіт")
     kb.adjust(1)
 
     await message.answer(
-        "Після завантаження матеріалів натисніть:",
+        "Надішліть фото або відео (до 10).\n"
+        "Коли завершите — натисніть кнопку нижче.",
         reply_markup=kb.as_markup(resize_keyboard=True)
     )
 
@@ -137,14 +136,14 @@ async def report_media_collect(message: types.Message, state: FSMContext):
 
 # ---------------- STEP 6: ВІДПРАВКА ----------------
 
-@dp.callback_query(F.data == "confirm_yes")
+@dp.callback_query(ReportForm.confirm, F.data == "confirm_yes")
 async def report_confirm(call: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
     # Чати Golden Berry
     oc_chat_map = {
-        "Ромни": -1001760038328,   # твій чат Ромни
-        "Одеса": -1002100782948    # твій чат Одеса
+        "Ромни": -1001760038328,   # чат Ромни
+        "Одеса": -1002100782948    # чат Одеса
     }
 
     chat_id = oc_chat_map.get(data["oc"])
@@ -169,7 +168,7 @@ async def report_confirm(call: types.CallbackQuery, state: FSMContext):
     await call.message.answer("✔ Звіт успішно надіслано!")
     await state.clear()
 
-@dp.callback_query(F.data == "confirm_no")
+@dp.callback_query(ReportForm.confirm, F.data == "confirm_no")
 async def report_cancel(call: types.CallbackQuery, state: FSMContext):
     await call.message.answer("❌ Відправку скасовано.")
     await state.clear()
