@@ -25,7 +25,6 @@ def load_spaces():
     return mapping
 
 def save_space(chat_id: int, space: str):
-    # Remove old entries for this space
     lines = []
     if os.path.exists(SPACES_FILE):
         with open(SPACES_FILE, "r") as f:
@@ -67,8 +66,7 @@ async def set_space(message: types.Message):
 
     save_space(message.chat.id, space)
 
-    await message.answer(f"✔ Простір '{space}' прив’язано до цього чату.\n"
-                         f"Тепер звіти для '{space}' будуть надсилатися саме сюди.")
+    await message.answer(f"✔ Простір '{space}' прив’язано до цього чату.")
 
 
 # ---------------- START ----------------
@@ -171,13 +169,9 @@ async def report_media_done(message: types.Message, state: FSMContext):
     data = await state.get_data()
 
     text = (
-        f"Перевірте дані:\n\n"
-        f"Простір: {data['oc']}\n"
         f"Дата: {data['date']}\n"
         f"Кількість дітей: {data['kids']}\n"
-        f"Викладач: {data['teacher']}\n"
-        f"Фото/відео: додано\n\n"
-        f"Підтвердити відправку?"
+        f"Викладач: {data['teacher']}"
     )
 
     kb = InlineKeyboardBuilder()
@@ -185,7 +179,7 @@ async def report_media_done(message: types.Message, state: FSMContext):
     kb.button(text="Скасувати", callback_data="confirm_no")
     kb.adjust(1)
 
-    await message.answer(text, reply_markup=kb.as_markup())
+    await message.answer(text + "\n\nПідтвердити відправку?", reply_markup=kb.as_markup())
 
 
 @dp.message(ReportForm.media)
@@ -218,22 +212,21 @@ async def report_confirm(call: types.CallbackQuery, state: FSMContext):
         )
         return
 
-    # Надсилання тексту
-    await bot.send_message(
-        chat_id,
-        f"Звіт:\n\n"
-        f"Простір: {data['oc']}\n"
+    caption = (
         f"Дата: {data['date']}\n"
         f"Кількість дітей: {data['kids']}\n"
         f"Викладач: {data['teacher']}"
     )
 
-    # Надсилання медіа
+    media_group = []
+
     for mtype, file_id in data.get("media", []):
         if mtype == "photo":
-            await bot.send_photo(chat_id, file_id)
+            media_group.append(types.InputMediaPhoto(media=file_id, caption=caption if len(media_group) == 0 else ""))
         else:
-            await bot.send_video(chat_id, file_id)
+            media_group.append(types.InputMediaVideo(media=file_id, caption=caption if len(media_group) == 0 else ""))
+
+    await bot.send_media_group(chat_id, media_group)
 
     await call.message.answer("✔ Звіт успішно надіслано!")
     await state.clear()
