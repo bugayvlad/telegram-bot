@@ -66,27 +66,31 @@ async def report_oc_invalid(message: types.Message):
 
 # ---------------- STEP 2: ДАТА ----------------
 
-@dp.message(ReportForm.date)
+@dp.message(ReportForm.date, F.text)
 async def report_date(message: types.Message, state: FSMContext):
-    await state.update_data(date=message.text)
+    await state.update_data(date=message.text.strip())
 
     await state.set_state(ReportForm.kids)
     await message.answer("Введіть кількість дітей:")
 
+@dp.message(ReportForm.date)
+async def report_date_invalid(message: types.Message):
+    await message.answer("Будь ласка, введіть дату у форматі 31.08.2026")
+
 # ---------------- STEP 3: КІЛЬКІСТЬ ДІТЕЙ ----------------
 
-@dp.message(ReportForm.kids)
+@dp.message(ReportForm.kids, F.text)
 async def report_kids(message: types.Message, state: FSMContext):
-    await state.update_data(kids=message.text)
+    await state.update_data(kids=message.text.strip())
 
     await state.set_state(ReportForm.teacher)
     await message.answer("Введіть ПІП викладача (приклад: Шостак Наталія):")
 
 # ---------------- STEP 4: ВИКЛАДАЧ ----------------
 
-@dp.message(ReportForm.teacher)
+@dp.message(ReportForm.teacher, F.text)
 async def report_teacher(message: types.Message, state: FSMContext):
-    await state.update_data(teacher=message.text)
+    await state.update_data(teacher=message.text.strip())
 
     await state.set_state(ReportForm.media)
 
@@ -143,7 +147,6 @@ async def report_media_collect(message: types.Message, state: FSMContext):
 async def report_confirm(call: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
-    # Чати Golden Berry
     oc_chat_map = {
         "Ромни": -1001760038328,
         "Одеса": -1002100782948
@@ -151,7 +154,6 @@ async def report_confirm(call: types.CallbackQuery, state: FSMContext):
 
     chat_id = oc_chat_map.get(data["oc"])
 
-    # Надсилання тексту
     await bot.send_message(
         chat_id,
         f"Звіт:\n\n"
@@ -161,7 +163,6 @@ async def report_confirm(call: types.CallbackQuery, state: FSMContext):
         f"Викладач: {data['teacher']}"
     )
 
-    # Надсилання медіа
     for mtype, file_id in data.get("media", []):
         if mtype == "photo":
             await bot.send_photo(chat_id, file_id)
