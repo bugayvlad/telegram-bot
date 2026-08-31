@@ -142,8 +142,8 @@ async def report_confirm(call: types.CallbackQuery, state: FSMContext):
 
     # Чати Golden Berry
     oc_chat_map = {
-        "Ромни": -1001760038328,   # чат Ромни
-        "Одеса": -1002100782948    # чат Одеса
+        "Ромни": -1001760038328,
+        "Одеса": -1002100782948
     }
 
     chat_id = oc_chat_map.get(data["oc"])
@@ -166,12 +166,31 @@ async def report_confirm(call: types.CallbackQuery, state: FSMContext):
             await bot.send_video(chat_id, file_id)
 
     await call.message.answer("✔ Звіт успішно надіслано!")
+
     await state.clear()
+
+    # Повернення кнопки "Подати звіт"
+    kb = ReplyKeyboardBuilder()
+    kb.button(text="Подати звіт")
+    kb.adjust(1)
+    await call.message.answer(
+        "Готово! Можете подати новий звіт:",
+        reply_markup=kb.as_markup(resize_keyboard=True)
+    )
 
 @dp.callback_query(ReportForm.confirm, F.data == "confirm_no")
 async def report_cancel(call: types.CallbackQuery, state: FSMContext):
     await call.message.answer("❌ Відправку скасовано.")
     await state.clear()
+
+    kb = ReplyKeyboardBuilder()
+    kb.button(text="Подати звіт")
+    kb.adjust(1)
+
+    await call.message.answer(
+        "Повертаємось до початку:",
+        reply_markup=kb.as_markup(resize_keyboard=True)
+    )
 
 # ---------------- RUN ----------------
 
