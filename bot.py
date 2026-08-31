@@ -49,10 +49,9 @@ async def report_start(message: types.Message, state: FSMContext):
         reply_markup=kb.as_markup(resize_keyboard=True)
     )
 
-@dp.message(ReportForm.oc)
+@dp.message(ReportForm.oc, F.text.in_(["Ромни", "Одеса"]))
 async def report_oc(message: types.Message, state: FSMContext):
-    oc_clean = message.text.strip()
-    await state.update_data(oc=oc_clean)
+    await state.update_data(oc=message.text.strip())
 
     await message.answer(
         "Введіть дату проведення (наприклад 31.08.2026):",
@@ -60,6 +59,10 @@ async def report_oc(message: types.Message, state: FSMContext):
     )
 
     await state.set_state(ReportForm.date)
+
+@dp.message(ReportForm.oc)
+async def report_oc_invalid(message: types.Message):
+    await message.answer("Будь ласка, оберіть один із варіантів: Ромни або Одеса.")
 
 # ---------------- STEP 2: ДАТА ----------------
 
@@ -166,13 +169,12 @@ async def report_confirm(call: types.CallbackQuery, state: FSMContext):
             await bot.send_video(chat_id, file_id)
 
     await call.message.answer("✔ Звіт успішно надіслано!")
-
     await state.clear()
 
-    # Повернення кнопки "Подати звіт"
     kb = ReplyKeyboardBuilder()
     kb.button(text="Подати звіт")
     kb.adjust(1)
+
     await call.message.answer(
         "Готово! Можете подати новий звіт:",
         reply_markup=kb.as_markup(resize_keyboard=True)
